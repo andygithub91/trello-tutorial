@@ -1,0 +1,118 @@
+// planetscale db
+// datasource db {
+//   provider     = "mysql"
+//   url          = env("DATABASE_URL")
+//   relationMode = "prisma"
+// }
+
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// neon db
+// prisma/schema.prisma
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+// 指定客戶端的類型和語言： 通過在 generator client 配置中指定 provider，例如 prisma-client-js，你告訴 Prisma 生成 JavaScript/TypeScript 客戶端。這對於使用 Node.js 或任何支持 JavaScript 的環境是必需的。
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Board {
+  id            String @id @default(uuid())
+  orgId         String
+  title         String
+  imageId       String
+  imageThumbUrl String @db.Text
+  imageFullUrl  String @db.Text
+  imageUserName String @db.Text
+  imageLinkHTML String @db.Text
+
+  lists List[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model List {
+  id    String @id @default(uuid())
+  title String
+  order Int
+
+  boardId String
+  // onDelete: Cascade 表示當 Board 被刪除時關聯到的 List 也要一起刪除
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  cards Card[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([boardId])
+}
+
+model Card {
+  id          String  @id @default(uuid())
+  title       String
+  order       Int
+  description String? @db.Text
+
+  listId String
+  list   List   @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listId])
+}
+
+enum ACTION {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum ENTITY_TYPE {
+  BOARD
+  LIST
+  CARD
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  orgId       String
+  action      ACTION
+  entityId    String
+  entityType  ENTITY_TYPE
+  entityTitle String
+  userId      String
+  userImage   String      @db.Text
+  userName    String      @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrgLimit {
+  id    String @id @default(uuid())
+  orgId String @unique
+  count Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrgSubscription {
+  id    String @id @default(uuid())
+  orgId String @unique
+
+  // @map(name: "stripe_customer_id")：@map 用于在数据库中将字段映射为不同的名称。这表示在数据库表中，这个字段的名称是 "stripe_customer_id"，与代码中的字段名称有所不同。
+  stripeCustomerId       String?   @unique @map(name: "stripe_customer_id")
+  stripeSubscriptionId   String?   @unique @map(name: "stripe_subscription_id")
+  stripePriceId          String?   @map(name: "stripe_price_id")
+  stripeCurrentPeriodEnd DateTime? @map(name: "stripe_current_period_end")
+}
